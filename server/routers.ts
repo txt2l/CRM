@@ -113,14 +113,68 @@ export const appRouter = router({
       roomId: z.number(),
       limit: z.number().default(50),
       offset: z.number().default(0),
+      lens: z.string().optional(),
     })).query(async ({ input }) => {
-      return db.getRoomMessages(input.roomId, input.limit, input.offset);
+      const rawMessages = await db.getRoomMessages(input.roomId, input.limit, input.offset);
+      
+      // If a lens is provided, map the messages to show the specific translation
+      if (input.lens) {
+        return rawMessages.map(msg => {
+          const translations = msg.translations as Record<string, string> | null;
+          return {
+            ...msg,
+            // If the translation for the lens exists, use it; otherwise fallback to original content
+            displayContent: translations?.[input.lens] || msg.content
+          };
+        });
+      }
+      
+      return rawMessages.map(msg => ({ ...msg, displayContent: msg.content }));
     }),
     create: protectedProcedure.input(z.object({
       roomId: z.number(),
       content: z.string().min(1),
     })).mutation(async ({ ctx, input }) => {
-      const id = await db.createMessage(input.roomId, ctx.user.id, input.content);
+      const { invokeLLM } = await import("./_core/llm");
+      
+      const departments = ["General", "Finance", "Engineering", "Marketing", "HR", "Sales"];
+      const userProfile = await db.getProfileByUserId(ctx.user.id.toString());
+      const sourceDept = userProfile?.profession || "General";
+      
+      const systemPrompt = `You are an expert Interdepartmental Translator. 
+Your goal is to translate a message from the "${sourceDept}" perspective into multiple versions for other departments: ${departments.join(", ")}.
+Ensure the core meaning is preserved but adapted to the specific "lingo" of each department.
+
+Return a JSON object where keys are department names and values are the translated text.
+Example format:
+{
+  "General": "...",
+  "Finance": "...",
+  "Engineering": "...",
+  ...
+}`;
+
+      let translations = {};
+      try {
+        const result = await invokeLLM({
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: input.content }
+          ],
+          response_format: { type: "json_object" }
+        });
+
+        const content = result.choices[0].message.content;
+        translations = typeof content === 'string' ? JSON.parse(content) : content;
+      } catch (error) {
+        console.error("[Translation Error during message creation]", error);
+        // Fallback: use original content for all departments
+        departments.forEach(dept => {
+          translations[dept] = input.content;
+        });
+      }
+
+      const id = await db.createMessage(input.roomId, ctx.user.id, input.content, translations);
       await logEvent({
         userId: ctx.user.id,
         roomId: input.roomId,

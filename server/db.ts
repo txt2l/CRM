@@ -227,7 +227,7 @@ export async function getRoomMembers(roomId: number) {
 
 // ─── Messages ───
 
-export async function createMessage(roomId: number, userId: number, content: string) {
+export async function createMessage(roomId: number, userId: number, content: string, translations?: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
@@ -235,6 +235,7 @@ export async function createMessage(roomId: number, userId: number, content: str
     roomId,
     userId,
     content,
+    translations,
   });
 
   return result[0].insertId;

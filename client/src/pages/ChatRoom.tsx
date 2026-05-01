@@ -14,21 +14,28 @@ export default function ChatRoom() {
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [translations, setTranslations] = useState<Record<number, string>>({});
-  const [targetDept, setTargetDept] = useState("General");
+  
+  const { data: profile } = trpc.profile.get.useQuery();
+  const [lens, setLens] = useState("General");
+
+  // Sync lens with user's profile profession on load
+  useEffect(() => {
+    if (profile?.profile?.profession) {
+      setLens(profile.profile.profession);
+    }
+  }, [profile]);
 
   const { data: room } = trpc.rooms.getById.useQuery(
     { id: roomId! },
     { enabled: !!roomId }
   );
 
-  const { data: messageList } = trpc.messages.list.useQuery(
-    { roomId: roomId!, limit: 50 },
-    { enabled: !!roomId }
+  const { data: messageList, refetch: refetchMessages } = trpc.messages.list.useQuery(
+    { roomId: roomId!, limit: 50, lens: lens },
+    { enabled: !!roomId, refetchInterval: 3000 } // Poll every 3s for "simultaneous" feel
   );
 
   const createMessage = trpc.messages.create.useMutation();
-  const translateMessage = trpc.translate.message.useMutation();
 
   useEffect(() => {
     if (messageList) {
@@ -46,24 +53,11 @@ export default function ChatRoom() {
         content: input,
       });
       setInput("");
+      refetchMessages();
     } catch (error) {
       console.error("Failed to send message:", error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleTranslate = async (messageId: number, content: string) => {
-    try {
-      const result = await translateMessage.mutateAsync({
-        content,
-        targetDepartment: targetDept,
-      });
-      if (result.success && result.translated) {
-        setTranslations(prev => ({ ...prev, [messageId]: result.translated }));
-      }
-    } catch (error) {
-      console.error("Translation failed:", error);
     }
   };
 
@@ -80,11 +74,11 @@ export default function ChatRoom() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">Translate to:</span>
+          <span className="text-sm font-medium">Your Lingo Lens:</span>
           <select 
-            value={targetDept} 
-            onChange={(e) => setTargetDept(e.target.value)}
-            className="bg-background border border-input rounded px-2 py-1 text-sm"
+            value={lens} 
+            onChange={(e) => setLens(e.target.value)}
+            className="bg-background border border-primary/50 rounded px-2 py-1 text-sm font-bold text-primary"
           >
             <option value="General">General Guy</option>
             <option value="Finance">Finance</option>
@@ -104,31 +98,24 @@ export default function ChatRoom() {
           </div>
         ) : (
           messages.map((msg) => (
-            <Card key={msg.id} className="p-3">
+            <Card key={msg.id} className="p-3 border-l-4 border-l-primary/30">
               <div className="flex justify-between items-start">
                 <div className="flex-1">
-                  <p className="font-semibold text-sm text-primary mb-1">User #{msg.userId}</p>
-                  <p className="text-foreground">{msg.content}</p>
-                  
-                  {translations[msg.id] && (
-                    <div className="mt-3 p-2 bg-muted/50 rounded-md border-l-2 border-primary">
-                      <p className="text-xs font-bold text-primary uppercase mb-1">{targetDept} Translation:</p>
-                      <p className="text-sm italic">{translations[msg.id]}</p>
-                    </div>
+                  <p className="font-semibold text-[10px] text-primary/70 uppercase tracking-wider mb-1">
+                    User #{msg.userId}
+                  </p>
+                  <p className="text-foreground leading-relaxed">
+                    {msg.displayContent}
+                  </p>
+                  {msg.displayContent !== msg.content && (
+                    <p className="text-[9px] text-muted-foreground mt-1 italic">
+                      Translated from {lens} lens
+                    </p>
                   )}
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="ml-4"
-                  onClick={() => handleTranslate(msg.id as number, msg.content)}
-                  disabled={translateMessage.isPending}
-                >
-                  {translateMessage.isPending ? <Loader2 className="size-3 animate-spin" /> : "Decode Lingo"}
-                </Button>
               </div>
-              <p className="text-[10px] text-muted-foreground mt-2">
-                {new Date(msg.createdAt).toLocaleString()}
+              <p className="text-[10px] text-muted-foreground mt-2 text-right">
+                {new Date(msg.createdAt).toLocaleTimeString()}
               </p>
             </Card>
           ))

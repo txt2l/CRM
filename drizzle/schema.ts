@@ -97,6 +97,7 @@ export const messages = mysqlTable("messages", {
   roomId: int("roomId").notNull().references(() => rooms.id, { onDelete: "cascade" }),
   userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
   content: text("content").notNull(),
+  translations: json("translations"), // Stores { "Finance": "...", "Engineering": "...", ... }
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (table) => [
