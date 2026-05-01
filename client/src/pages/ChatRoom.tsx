@@ -14,6 +14,8 @@ export default function ChatRoom() {
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [translations, setTranslations] = useState<Record<number, string>>({});
+  const [targetDept, setTargetDept] = useState("General");
 
   const { data: room } = trpc.rooms.getById.useQuery(
     { id: roomId! },
@@ -30,7 +32,7 @@ export default function ChatRoom() {
 
   useEffect(() => {
     if (messageList) {
-      setMessages(messageList.reverse());
+      setMessages([...messageList].reverse());
     }
   }, [messageList]);
 
@@ -55,10 +57,10 @@ export default function ChatRoom() {
     try {
       const result = await translateMessage.mutateAsync({
         content,
-        targetLanguage: "es",
+        targetDepartment: targetDept,
       });
-      if (result.success) {
-        console.log("Translated:", result.translated);
+      if (result.success && result.translated) {
+        setTranslations(prev => ({ ...prev, [messageId]: result.translated }));
       }
     } catch (error) {
       console.error("Translation failed:", error);
@@ -70,11 +72,28 @@ export default function ChatRoom() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="border-b border-border p-4">
-        <h1 className="text-2xl font-bold">{room?.name || "Loading..."}</h1>
-        {room?.description && (
-          <p className="text-muted-foreground text-sm">{room.description}</p>
-        )}
+      <div className="border-b border-border p-4 flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold">{room?.name || "Loading..."}</h1>
+          {room?.description && (
+            <p className="text-muted-foreground text-sm">{room.description}</p>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium">Translate to:</span>
+          <select 
+            value={targetDept} 
+            onChange={(e) => setTargetDept(e.target.value)}
+            className="bg-background border border-input rounded px-2 py-1 text-sm"
+          >
+            <option value="General">General Guy</option>
+            <option value="Finance">Finance</option>
+            <option value="Engineering">Engineering</option>
+            <option value="Marketing">Marketing</option>
+            <option value="HR">HR</option>
+            <option value="Sales">Sales</option>
+          </select>
+        </div>
       </div>
 
       {/* Messages */}
@@ -87,19 +106,28 @@ export default function ChatRoom() {
           messages.map((msg) => (
             <Card key={msg.id} className="p-3">
               <div className="flex justify-between items-start">
-                <div>
-                  <p className="font-semibold text-sm">{msg.userId}</p>
+                <div className="flex-1">
+                  <p className="font-semibold text-sm text-primary mb-1">User #{msg.userId}</p>
                   <p className="text-foreground">{msg.content}</p>
+                  
+                  {translations[msg.id] && (
+                    <div className="mt-3 p-2 bg-muted/50 rounded-md border-l-2 border-primary">
+                      <p className="text-xs font-bold text-primary uppercase mb-1">{targetDept} Translation:</p>
+                      <p className="text-sm italic">{translations[msg.id]}</p>
+                    </div>
+                  )}
                 </div>
                 <Button
                   size="sm"
-                  variant="ghost"
+                  variant="outline"
+                  className="ml-4"
                   onClick={() => handleTranslate(msg.id as number, msg.content)}
+                  disabled={translateMessage.isPending}
                 >
-                  Translate
+                  {translateMessage.isPending ? <Loader2 className="size-3 animate-spin" /> : "Decode Lingo"}
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground mt-2">
+              <p className="text-[10px] text-muted-foreground mt-2">
                 {new Date(msg.createdAt).toLocaleString()}
               </p>
             </Card>

@@ -11,7 +11,7 @@ export default function Profile() {
   const [formData, setFormData] = useState({
     birthdate: "",
     location: "",
-    profession: "",
+    profession: "General",
     position: "",
     quote: "",
     coping: "",
@@ -76,13 +76,20 @@ export default function Profile() {
         </div>
 
         <div>
-          <label className="text-sm text-muted-foreground">Profession</label>
-          <Input
+          <label className="text-sm text-muted-foreground">Department / Role (for translation context)</label>
+          <select 
             name="profession"
-            placeholder="Your profession"
             value={formData.profession}
-            onChange={handleChange}
-          />
+            onChange={(e) => setFormData(prev => ({ ...prev, profession: e.target.value }))}
+            className="w-full p-2 bg-background border border-input rounded text-sm"
+          >
+            <option value="General">General Guy</option>
+            <option value="Finance">Finance</option>
+            <option value="Engineering">Engineering</option>
+            <option value="Marketing">Marketing</option>
+            <option value="HR">HR</option>
+            <option value="Sales">Sales</option>
+          </select>
         </div>
 
         <div>

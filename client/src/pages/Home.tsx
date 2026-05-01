@@ -47,10 +47,13 @@ export default function Home() {
     <DashboardLayout>
       <div className="space-y-4">
         <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold">Chat Rooms</h1>
+          <div>
+            <h1 className="text-3xl font-bold">Interdepartmental Translator</h1>
+            <p className="text-muted-foreground">Bridge the communication gap between departments.</p>
+          </div>
           <Button onClick={() => setShowCreateForm(!showCreateForm)}>
             <Plus className="w-4 h-4 mr-2" />
-            New Room
+            New Project
           </Button>
         </div>
 
@@ -58,12 +61,12 @@ export default function Home() {
         {showCreateForm && (
           <Card className="p-4 space-y-3">
             <Input
-              placeholder="Room name"
+              placeholder="Project Name (e.g., Q2 Budget Sync)"
               value={newRoomName}
               onChange={(e) => setNewRoomName(e.target.value)}
             />
             <Input
-              placeholder="Description (optional)"
+              placeholder="Goal (e.g., Translating engineering roadmap for finance)"
               value={newRoomDesc}
               onChange={(e) => setNewRoomDesc(e.target.value)}
             />

@@ -195,12 +195,48 @@ export const appRouter = router({
   translate: router({
     message: protectedProcedure.input(z.object({
       content: z.string(),
-      targetLanguage: z.string().default("en"),
+      sourceDepartment: z.string().optional(),
+      targetDepartment: z.string().default("General"),
     })).mutation(async ({ ctx, input }) => {
-      // Translation feature requires external LLM service
-      // Placeholder: return original text with note
-      console.log("[Translation] Placeholder - integrate with external LLM service");
-      return { translated: input.content, success: true, note: "Translation service not configured - integrate with external LLM" };
+      const { invokeLLM } = await import("./_core/llm");
+      
+      const systemPrompt = `You are an expert Interdepartmental Translator. 
+Your goal is to translate messages between different professional departments (Finance, Engineering, Marketing, HR, Sales, etc.) and "General" (layperson terms).
+Ensure that the core meaning, urgency, and technical accuracy are preserved, but the "lingo" is adapted so the target audience can fully understand it.
+
+Source Context: ${input.sourceDepartment || "Unknown Department"}
+Target Audience: ${input.targetDepartment}
+
+Guidelines:
+1. If the source is technical (Engineering), explain concepts in terms of business value or general functionality.
+2. If the source is financial, explain in terms of budget impact or project resources.
+3. If the source is marketing, focus on user impact or brand messaging.
+4. Always maintain a professional yet accessible tone.`;
+
+      try {
+        const result = await invokeLLM({
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: input.content }
+          ]
+        });
+
+        const translated = typeof result.choices[0].message.content === 'string' 
+          ? result.choices[0].message.content 
+          : JSON.stringify(result.choices[0].message.content);
+
+        return { 
+          translated, 
+          success: true 
+        };
+      } catch (error) {
+        console.error("[Translation Error]", error);
+        return { 
+          translated: input.content, 
+          success: false, 
+          error: "Translation service failed" 
+        };
+      }
     }),
   }),
 
