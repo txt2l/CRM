@@ -119,12 +119,13 @@ export const appRouter = router({
       
       // If a lens is provided, map the messages to show the specific translation
       if (input.lens) {
+        const lens = input.lens;
         return rawMessages.map(msg => {
           const translations = msg.translations as Record<string, string> | null;
           return {
             ...msg,
             // If the translation for the lens exists, use it; otherwise fallback to original content
-            displayContent: translations?.[input.lens] || msg.content
+            displayContent: translations?.[lens] || msg.content
           };
         });
       }
@@ -154,7 +155,7 @@ Example format:
   ...
 }`;
 
-      let translations = {};
+      let translations: Record<string, string> = {};
       try {
         const result = await invokeLLM({
           messages: [
